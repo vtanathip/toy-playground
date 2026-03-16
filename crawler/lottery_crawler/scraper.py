@@ -2,7 +2,7 @@
 
 from typing import Any, cast
 
-from lottery_crawler.parser import parse_markdown_stats, extract_metadata
+from lottery_crawler.parser import parse_markdown_stats, extract_metadata, parse_draw_history
 from lottery_crawler.sections import LOTTERY_SECTIONS
 
 
@@ -47,11 +47,13 @@ async def scrape_lottery_stats(url: str) -> dict:
     # Parse
     metadata = extract_metadata(markdown, url)
     sections = parse_markdown_stats(markdown)
+    draw_history = parse_draw_history(markdown)
 
     freq_count = sum(1 for s in sections if s["frequency_by_digit"])
     rank_count = sum(1 for s in sections if s["ranked_frequency"])
     print(f"📊 Extracted {freq_count}/{len(LOTTERY_SECTIONS)} frequency tables")
     print(
         f"📊 Extracted {rank_count}/{len(LOTTERY_SECTIONS)} ranked frequency lists")
+    print(f"📊 Extracted {len(draw_history)} draw history records")
 
-    return {"metadata": metadata, "sections": sections}
+    return {"metadata": metadata, "sections": sections, "draw_history": draw_history}

@@ -163,3 +163,161 @@ def extract_metadata(markdown: str, url: str) -> dict:
         "period": period,
         "crawled_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Draw history table parser
+# ---------------------------------------------------------------------------
+
+_THAI_MONTHS: dict[str, int] = {
+    "มกราคม": 1,
+    "กุมภาพันธ์": 2,
+    "มีนาคม": 3,
+    "เมษายน": 4,
+    "พฤษภาคม": 5,
+    "มิถุนายน": 6,
+    "กรกฎาคม": 7,
+    "สิงหาคม": 8,
+    "กันยายน": 9,
+    "ตุลาคม": 10,
+    "พฤศจิกายน": 11,
+    "ธันวาคม": 12,
+}
+
+_DRAW_HISTORY_MARKER = "สถิติหวยออกย้อนหลัง 36 ปี"
+
+
+def _parse_three_front_back(raw: str) -> dict[str, list[str]]:
+    """Parse combined '3 ตัวหน้า, 3 ตัวล่าง' field.
+
+    The markdown renders front-3 numbers in italics: ``_054_ _479_ 068 837``
+    Front numbers are wrapped in underscores, back numbers are plain.
+    """
+    front: list[str] = []
+    back: list[str] = []
+    for token in raw.split():
+        cleaned = token.strip("_")
+        if not cleaned:
+            continue
+        if token.startswith("_") and token.endswith("_"):
+            front.append(cleaned)
+        else:
+            back.append(cleaned)
+    return {"three_front": front, "three_back": back}
+
+
+def parse_draw_history(markdown: str) -> list[dict]:
+    """Parse the draw-by-draw history table from the page markdown.
+
+    Each draw record in the markdown is a repeating block of lines::
+
+        day            (e.g. 1)
+        month_name     (e.g. มีนาคม)
+        month_abbrev   (e.g. มี.ค.)
+        year           (e.g. 2569)
+        short_year     (e.g. 69)
+        first_prize    (6 or 7 digits)
+        two_top        (last 2 of 1st prize)
+        three_top      (last 3 of 1st prize)
+        two_bottom     (2-digit bottom prize)
+        [3_front_back] (combined field, only newer draws)
+        [dup_2_bottom] (duplicate, only newer draws)
+        [dup_3_field]  (duplicate, only newer draws)
+
+    Returns a list of draw dicts sorted newest-first.
+    """
+    lines = markdown.splitlines()
+
+    # Locate the table header (after the frequency stats sections)
+    start_idx: int | None = None
+    for i, line in enumerate(lines):
+        if _DRAW_HISTORY_MARKER in line and i > 500:
+            start_idx = i
+            break
+
+    if start_idx is None:
+        return []
+
+    records: list[dict] = []
+    i = start_idx + 1
+
+    while i < len(lines) - 5:
+        stripped = lines[i].strip()
+
+        # Look for a day number (1-31)
+        if not re.match(r"^\d{1,2}$", stripped):
+            i += 1
+            continue
+
+        day = int(stripped)
+        if day < 1 or day > 31:
+            i += 1
+            continue
+
+        # Next line should be a Thai month name
+        if i + 1 >= len(lines):
+            break
+        month_name = lines[i + 1].strip()
+        if month_name not in _THAI_MONTHS:
+            i += 1
+            continue
+
+        # i+2 = month abbreviation (skip)
+        # i+3 = full year (25xx)
+        if i + 3 >= len(lines):
+            break
+        year_str = lines[i + 3].strip()
+        if not re.match(r"^25\d{2}$", year_str):
+            i += 1
+            continue
+
+        # i+4 = short year (skip)
+        # i+5 = first prize (6 or 7 digits)
+        if i + 5 >= len(lines):
+            break
+        prize = lines[i + 5].strip()
+        if not re.match(r"^\d{6,7}$", prize):
+            i += 1
+            continue
+
+        # Build draw record
+        record: dict = {
+            "date": f"{day} {month_name} {year_str}",
+            "day": day,
+            "month": _THAI_MONTHS[month_name],
+            "year": int(year_str),
+            "first_prize": prize,
+        }
+
+        # i+6 = 2 ตัวบน, i+7 = 3 ตัวบน, i+8 = 2 ตัวล่าง
+        offset = i + 6
+        if offset < len(lines) and re.match(r"^\d{2}$", lines[offset].strip()):
+            record["last_two_top"] = lines[offset].strip()
+        offset += 1
+        if offset < len(lines) and re.match(r"^\d{3}$", lines[offset].strip()):
+            record["last_three_top"] = lines[offset].strip()
+        offset += 1
+        if offset < len(lines) and re.match(r"^\d{2}$", lines[offset].strip()):
+            record["last_two_bottom"] = lines[offset].strip()
+
+        # i+9 = combined 3 ตัวหน้า, 3 ตัวล่าง (only in newer records)
+        offset = i + 9
+        if offset < len(lines):
+            combined_line = lines[offset].strip()
+            if "_" in combined_line or len(combined_line.split()) >= 3:
+                parsed = _parse_three_front_back(combined_line)
+                if parsed["three_front"] or parsed["three_back"]:
+                    record["three_front"] = parsed["three_front"]
+                    record["three_back"] = parsed["three_back"]
+                # Skip the duplicate lines (i+10, i+11)
+                i += 12
+            else:
+                # Older format — no combined field, shorter record
+                i += 10
+        else:
+            i += 10
+
+        records.append(record)
+        continue
+
+    return records
