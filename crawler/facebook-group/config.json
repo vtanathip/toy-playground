@@ -1,0 +1,12 @@
+{
+    "groupUrl": "https://www.facebook.com/groups/atpk.zero2top/learning_content",
+    "cookiesPath": "./cookies.json",
+    "outputDir": "./output",
+    "outputFile": "video-urls.txt",
+    "scrollDelayMs": 2000,
+    "scrollTimeoutMs": 10000,
+    "headless": false,
+    "ytdlpCookiesPath": "./output/cookies.txt",
+    "ytdlpOutputTemplate": "%(title)s_%(id)s.%(ext)s",
+    "downloadDir": "./downloads"
+}

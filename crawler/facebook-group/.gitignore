@@ -1,0 +1,12 @@
+node_modules/
+dist/
+
+# Sensitive — contains authentication tokens
+cookies.json
+
+# yt-dlp binary
+yt-dlp.exe
+
+# Generated outputs
+output/
+downloads/

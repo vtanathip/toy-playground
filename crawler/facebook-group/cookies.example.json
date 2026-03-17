@@ -1,0 +1,32 @@
+[
+    {
+        "name": "c_user",
+        "value": "YOUR_USER_ID",
+        "domain": ".facebook.com",
+        "path": "/",
+        "expires": 1742000000,
+        "httpOnly": false,
+        "secure": true,
+        "sameSite": "None"
+    },
+    {
+        "name": "xs",
+        "value": "YOUR_XS_VALUE",
+        "domain": ".facebook.com",
+        "path": "/",
+        "expires": 1742000000,
+        "httpOnly": true,
+        "secure": true,
+        "sameSite": "None"
+    },
+    {
+        "name": "datr",
+        "value": "YOUR_DATR_VALUE",
+        "domain": ".facebook.com",
+        "path": "/",
+        "expires": 1742000000,
+        "httpOnly": true,
+        "secure": true,
+        "sameSite": "None"
+    }
+]
