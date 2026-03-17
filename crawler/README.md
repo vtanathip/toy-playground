@@ -4,7 +4,7 @@ This directory is a workspace for multiple crawler projects.
 
 ## Projects
 
-- `lottery-crawler`: Thai lottery statistics crawler
+- `lottery-stats`: Thai lottery statistics crawler (`lottery-crawler` package)
 
 ## Conventions
 
