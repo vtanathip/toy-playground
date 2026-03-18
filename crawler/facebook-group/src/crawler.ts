@@ -82,12 +82,19 @@ async function collectLearningContentLinks(page: Page): Promise<{
  *
  * Also detects external video embeds (YouTube, Vimeo, etc.) in iframes.
  */
+interface PostExtraction {
+  videos: VideoInfo[];
+  postTitle?: string;
+}
+
 async function extractVideoUrlsFromPost(
   page: Page,
   postUrl: string
-): Promise<string[]> {
+): Promise<PostExtraction> {
   const videoIds = new Set<string>();
   const externalUrls = new Set<string>();
+  let postTitle: string | undefined;
+  let videoTitleMap: Record<string, string> = {};
 
   // Listen for network requests to capture Facebook video IDs from CDN URLs
   const handler = (request: { url: () => string }) => {
@@ -127,6 +134,32 @@ async function extractVideoUrlsFromPost(
       }
     }
 
+    // Extract the post title from the page
+    postTitle = await page.evaluate(() => {
+      // Try the main heading or strong text in the post content area
+      const heading = document.querySelector('h2, [role="heading"]');
+      if (heading?.textContent?.trim()) return heading.textContent.trim();
+      // Fallback: page title
+      return document.title?.trim() || undefined;
+    }) || undefined;
+
+    // Try to extract video titles visible on the page
+    videoTitleMap = await page.evaluate(() => {
+      const titles: Record<string, string> = {};
+      // Facebook video players often have aria-label or nearby text with the title
+      const videoLinks = Array.from(document.querySelectorAll('a[href*="/watch/"], a[href*="/videos/"], a[href*="/reel/"]'));
+      for (const link of videoLinks) {
+        const href = (link as HTMLAnchorElement).href;
+        const vidMatch = href.match(/[?&]v=(\d+)|\/(\d{10,16})/);
+        const vid = vidMatch?.[1] || vidMatch?.[2];
+        if (vid) {
+          const titleText = link.getAttribute('aria-label') || link.textContent?.trim();
+          if (titleText) titles[vid] = titleText;
+        }
+      }
+      return titles;
+    });
+
     // Check for external video embeds in iframes
     const iframeSrcs = await page.evaluate(() => {
       return Array.from(document.querySelectorAll("iframe[src]"))
@@ -143,13 +176,16 @@ async function extractVideoUrlsFromPost(
     page.off("request", handler);
   }
 
-  const results: string[] = [];
+  const results: VideoInfo[] = [];
 
   // Convert Facebook video IDs to yt-dlp compatible watch URLs
   // Valid Facebook video IDs are numeric and typically 15-16 digits
   for (const id of videoIds) {
     if (/^\d{10,16}$/.test(id)) {
-      results.push(`https://www.facebook.com/watch/?v=${id}`);
+      results.push({
+        url: `https://www.facebook.com/watch/?v=${id}`,
+        title: videoTitleMap[id],
+      });
     } else {
       console.log(`⚠️  Skipping suspicious video ID: ${id}`);
     }
@@ -157,13 +193,31 @@ async function extractVideoUrlsFromPost(
 
   // Add external embed URLs
   for (const url of externalUrls) {
-    results.push(url);
+    results.push({ url });
   }
 
-  return results;
+  return { videos: results, postTitle };
 }
 
-export async function crawl(config: Config): Promise<string[]> {
+export interface VideoInfo {
+  url: string;
+  title?: string;
+}
+
+export interface PostResult {
+  postUrl: string;
+  postTitle?: string;
+  videos: VideoInfo[];
+  status: "ok" | "no-video" | "error";
+  error?: string;
+}
+
+export interface CrawlResult {
+  posts: PostResult[];
+  totalVideos: number;
+}
+
+export async function crawl(config: Config): Promise<CrawlResult> {
   const cookies = loadCookies(config.cookiesPath);
 
   console.log("🚀 Launching browser...");
@@ -244,29 +298,47 @@ export async function crawl(config: Config): Promise<string[]> {
     console.log("\n🎬 Phase 4: Extracting video URLs from each post...");
     const allVideoUrls = new Set<string>();
     const postArray = [...allPostLinks];
+    const postResults: PostResult[] = [];
 
     for (let i = 0; i < postArray.length; i++) {
       const postLink = postArray[i];
       console.log(`  📝 Post ${i + 1}/${postArray.length}: ${postLink}`);
 
       try {
-        const videoUrls = await extractVideoUrlsFromPost(page, postLink);
-        videoUrls.forEach((url) => allVideoUrls.add(url));
+        const { videos, postTitle } = await extractVideoUrlsFromPost(page, postLink);
+        videos.forEach((v) => allVideoUrls.add(v.url));
 
-        if (videoUrls.length > 0) {
-          console.log(`    🎬 Found ${videoUrls.length} video(s): ${videoUrls.join(", ")}`);
+        if (videos.length > 0) {
+          console.log(`    📌 Title: ${postTitle || '(untitled)'}`);
+          console.log(`    🎬 Found ${videos.length} video(s):`);
+          videos.forEach((v) => console.log(`       - ${v.url}${v.title ? ` [${v.title}]` : ''}`));
+          postResults.push({ postUrl: postLink, postTitle, videos, status: "ok" });
         } else {
+          console.log(`    📌 Title: ${postTitle || '(untitled)'}`);
           console.log(`    ℹ️ No video found`);
+          postResults.push({ postUrl: postLink, postTitle, videos: [], status: "no-video" });
         }
       } catch (err) {
-        console.warn(
-          `    ⚠️ Failed: ${err instanceof Error ? err.message : err}`
-        );
+        const reason = err instanceof Error ? err.message : String(err);
+        console.warn(`    ⚠️ Failed: ${reason}`);
+        postResults.push({ postUrl: postLink, videos: [], status: "error", error: reason });
       }
     }
 
+    const skippedPosts = postResults.filter((p) => p.status !== "ok");
     console.log(`\n🏁 Total unique video URLs collected: ${allVideoUrls.size}`);
-    return Array.from(allVideoUrls);
+
+    if (skippedPosts.length > 0) {
+      console.log(`\n⚠️  ${skippedPosts.length} post(s) had no video (check manually):`);
+      for (const { postUrl, error } of skippedPosts) {
+        console.log(`   - ${postUrl}`);
+        if (error) console.log(`     Reason: ${error}`);
+      }
+    }
+    return {
+      posts: postResults,
+      totalVideos: allVideoUrls.size,
+    };
   } finally {
     await browser.close();
   }

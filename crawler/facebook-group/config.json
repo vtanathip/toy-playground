@@ -5,7 +5,7 @@
     "outputFile": "video-urls.txt",
     "scrollDelayMs": 2000,
     "scrollTimeoutMs": 10000,
-    "headless": false,
+    "headless": true,
     "ytdlpCookiesPath": "./output/cookies.txt",
     "ytdlpOutputTemplate": "%(title)s_%(id)s.%(ext)s",
     "downloadDir": "./downloads"
