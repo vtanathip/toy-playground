@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(code --version)",
+      "Bash(npm --version)",
+      "Bash(npm info *)",
+      "Bash(node -e \"const d=JSON.parse\\(require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\)\\); console.log\\('Latest:', d['dist-tags']?.latest\\); console.log\\('Versions tail:', d.versions?.slice\\(-5\\).join\\(', '\\)\\)\")",
+      "Bash(npm view *)",
+      "Bash(node -e \"const chunks=[]; process.stdin.on\\('data',c=>chunks.push\\(c\\)\\); process.stdin.on\\('end',\\(\\)=>{const v=JSON.parse\\(chunks.join\\(''\\)\\); console.log\\(v.slice\\(-5\\).join\\(', '\\)\\)}\\)\")",
+      "Bash(npm pack *)",
+      "Bash(node -e \"process.stdin.resume\\(\\); let d=''; process.stdin.on\\('data',c=>d+=c\\); process.stdin.on\\('end',\\(\\)=>{ try{const p=JSON.parse\\(d\\); console.log\\(JSON.stringify\\({v:p.version,engines:p.engines,peer:p.peerDependencies},null,2\\)\\)}catch\\(e\\){console.log\\('parse error',e.message\\)} }\\)\")",
+      "Bash(node -e \"process.stdin.resume\\(\\); let d=''; process.stdin.on\\('data',c=>d+=c\\); process.stdin.on\\('end',\\(\\)=>{ try{const p=JSON.parse\\(d\\); console.log\\('esbuild version:', p.version, 'description:', p.description\\)}catch\\(e\\){} }\\)\")",
+      "Bash(sh --version)",
+      "Bash(code --help)",
+      "Bash(\"/c/Program Files/Microsoft VS Code/bin/code\" --help)",
+      "Bash(node -e ' *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(git add *)"
+    ]
+  }
+}

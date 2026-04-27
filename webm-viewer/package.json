@@ -1,0 +1,59 @@
+{
+  "name": "webm-viewer",
+  "displayName": "WebM Viewer",
+  "description": "Preview WebM video files inside VS Code using a native HTML5 video player.",
+  "version": "0.1.0",
+  "publisher": "PLACEHOLDER_PUBLISHER",
+  "license": "MIT",
+  "icon": "resources/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PLACEHOLDER_PUBLISHER/webm-viewer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PLACEHOLDER_PUBLISHER/webm-viewer/issues"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["webm", "video", "viewer", "preview", "media"],
+  "activationEvents": [
+    "onCustomEditor:webmViewer.webmPreview"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "webmViewer.webmPreview",
+        "displayName": "WebM Preview",
+        "selector": [
+          {
+            "filenamePattern": "*.webm"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "vscode:prepublish": "node esbuild.js --production",
+    "package": "npx @vscode/vsce package",
+    "publish": "npx @vscode/vsce publish",
+    "install-ext": "code --install-extension webm-viewer-0.1.0.vsix",
+    "uninstall": "code --uninstall-extension PLACEHOLDER_PUBLISHER.webm-viewer"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.9.1",
+    "esbuild": "^0.28.0",
+    "typescript": "^6.0.0"
+  }
+}
